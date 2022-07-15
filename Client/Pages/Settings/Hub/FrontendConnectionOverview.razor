@@ -1,0 +1,70 @@
+﻿@page "/settings/hub/connections/frontend"
+@using CentralStation.Client.Extensions
+@using CentralStation.Client.Models
+@using CentralStation.Client.Services
+@using CentralStation.Client.Shared.DataGrid
+@using CoreLibrary.ConstantValues
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject HttpClient Http
+
+<DataGrid Define="HubSettingsHelpers.DefineConnectionsDataGrid"
+          Source="@rows"
+          GetDeleteAllowed="IsDeleteAllowed"
+          BuildDeleteMessage="HubSettingsHelpers.BuildConfirmDeleteConnectionMessage"
+          OnRowDelete="OnRowDelete"
+          GetDeleteMark="@(row => row.MarkDelete)" />
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    private List<PeerConnectionRow> rows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchData();
+
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate += HandleRegistrationUpdate;
+        }
+    }
+
+    private bool IsDeleteAllowed(PeerConnectionRow row)
+    {
+        if (Central == null || Central.HubClient.HubConnectionId is null)
+        {
+            return false;
+        }
+        return row.HubConnectionId != Central.HubClient.HubConnectionId;
+    }
+
+    private async Task OnRowDelete(PeerConnectionRow row)
+    {
+        row.MarkDelete = true;
+        StateHasChanged();
+
+        await Http.DeleteAsync($"hub/connections/{row.Id}");
+        // TODO: toaster
+    }
+
+    private async Task FetchData() => this.rows = await Http.GetList<PeerConnectionRow>($"hub/connections/{CoreConstants.FrontEndPeer}");
+
+    private async Task HandleRegistrationUpdate(UpdatedRegistrations updated)
+    {
+        await FetchData();
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate -= HandleRegistrationUpdate;
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}

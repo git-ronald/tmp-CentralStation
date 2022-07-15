@@ -1,0 +1,15 @@
+﻿.modal.show {
+    display: block;
+}
+
+.modal-backdrop:not(.show){
+    display: none;
+}
+
+.modal-header {
+    background-color: #3d474c;
+}
+
+.modal-footer {
+    border-top: none;
+}

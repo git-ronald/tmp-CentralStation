@@ -1,0 +1,67 @@
+﻿@page "/settings/hub/connections/backend"
+@using CentralStation.Client.Extensions
+@using CentralStation.Client.Models
+@using CentralStation.Client.Services
+@using CentralStation.Client.Shared.DataGrid
+@using CoreLibrary.ConstantValues
+@using CoreLibrary.Helpers
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject HttpClient Http
+
+<DataGrid Define="HubSettingsHelpers.DefineConnectionsDataGrid"
+          Source="@rows"
+          BuildDeleteMessage="HubSettingsHelpers.BuildConfirmDeleteConnectionMessage"
+          OnRowDelete="OnRowDelete"
+          GetDeleteMark="@(row => row.MarkDelete)" />
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    private List<PeerConnectionRow> rows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchData();
+
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate += HandleRegistrationUpdate;
+        }
+    }
+
+    private async Task OnRowDelete(PeerConnectionRow row)
+    {
+        row.MarkDelete = true;
+        StateHasChanged();
+
+        await Http.DeleteAsync($"hub/connections/{row.Id}");
+    }
+
+    private IEnumerable<DataColumnDefinition<PeerConnectionRow>> GetDefinition()
+    {
+        yield return new("Peer name", row => row.PeerName);
+        yield return new("IP", row => row.IP);
+        yield return new("Last message time", row => row.LastMessageTime.ToStandardFormat());
+    }
+
+    private async Task FetchData() => this.rows = await Http.GetList<PeerConnectionRow>($"hub/connections/{CoreConstants.BackEndPeer}");
+
+    private async Task HandleRegistrationUpdate(UpdatedRegistrations updated)
+    {
+        await FetchData();
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate -= HandleRegistrationUpdate;
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}

@@ -1,0 +1,10 @@
+﻿@page "/granddaddy/{*path}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+Route: @Path
+
+@code {
+    [Parameter]
+    public string Path { get; set; } = String.Empty;
+}

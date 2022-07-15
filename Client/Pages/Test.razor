@@ -1,0 +1,103 @@
+﻿@page "/test1"
+@using CentralStation.Client.Extensions
+@using CentralStation.Client.Models
+@using CoreLibrary.ConstantValues
+@using Microsoft.AspNetCore.Authorization
+@using CentralStation.Client.Services
+@using System.Text.Json
+@using System.Net
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject HttpClient Http
+
+<div class="container">
+    <div class="row mb-1">
+        <div class="col-12">
+            Hi 🙂 <button @onclick="TalkToPeer" disabled="@(!IsConnected)" class="btn btn-sm btn-primary">Click here</button>
+        </div>
+    </div>
+    <div class="row mt-2">
+        <div class="col-11">
+            <p>Messages:</p>
+            <ul>
+                @foreach (string msg in this.messages)
+                {
+                    <li>@msg</li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    private List<string> messages = new();
+    private bool IsConnected => Central?.HubClient.IsConnected ?? false;
+
+    protected override void OnInitialized()
+    {
+        if (Central != null)
+        {
+            Central.HubClient.OnConnectionRegistered += OnConnectionRegistered;
+            Central.HubClient.OnPeerResponse += OnPeerResponse;
+            Central.HubClient.OnPeerEror += OnPeerError;
+        }
+    }
+
+    private Task OnConnectionRegistered()
+    {
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task TalkToPeer()
+    {
+        if (Central != null)
+        {
+            Guid testPeerId = (await Http.GetList<PeerRow>("hub/peers")).First(p => p.Id == new Guid("c53c45b5-786c-411f-bdb2-4bb26df843a3")).Id;
+            await Central.HubClient.RequestPeer(testPeerId, "/things/nicethings/dosomething", 2);
+        }
+    }
+
+    private async Task OnPeerResponse(Guid peerConnectionId, string path, object? data)
+    {
+        var peerConnection = (await Http.GetList<PeerConnectionRow>($"hub/connections/{CoreConstants.BackEndPeer}")).FirstOrDefault(c => c.Id == peerConnectionId);
+        if (peerConnection != null)
+        {
+            string msgData = data == null ? "" : $": {data}";
+            this.messages.Add($"{DateTime.Now} Received from {peerConnection.PeerName} {path}{msgData}");
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnPeerError(Guid peerConnectionId, string path, JsonElement? data, HttpStatusCode statusCode)
+    {
+        var peerConnection = (await Http.GetList<PeerConnectionRow>($"hub/connections/{CoreConstants.BackEndPeer}")).FirstOrDefault(c => c.Id == peerConnectionId);
+        if (peerConnection != null)
+        {
+            string BuildMessageData()
+            {
+                if (data == null)
+                {
+                    return String.Empty;
+                }
+                return $": {data.Value.Deserialize<int>()}";
+            }
+
+            this.messages.Add($"{DateTime.Now} Error {statusCode} from {peerConnection.PeerName} {path}{BuildMessageData()}");
+            StateHasChanged();
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.HubClient.OnConnectionRegistered -= OnConnectionRegistered;
+            Central.HubClient.OnPeerResponse -= OnPeerResponse;
+        }
+        return ValueTask.CompletedTask;
+    }
+}

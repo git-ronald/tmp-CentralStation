@@ -1,0 +1,10 @@
+﻿.navbar {
+    background-color: #32363b;
+    height: 64px;
+    border: none;
+    border-bottom: solid 1px black;
+}
+
+.navbar .form-control[type=search] {
+    border: none;
+}

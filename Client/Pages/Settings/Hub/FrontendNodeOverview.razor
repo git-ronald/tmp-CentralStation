@@ -1,0 +1,78 @@
+﻿@page "/settings/hub/nodes/frontend"
+@using CentralStation.Client.Extensions
+@using CentralStation.Client.Models
+@using CentralStation.Client.Services
+@using CentralStation.Client.Shared.DataGrid
+@using CoreLibrary.ConstantValues
+@using CoreLibrary.Helpers
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject HttpClient Http
+
+<DataGrid Define="GetDefinition"
+          Source="@rows"
+          GetDeleteAllowed="IsDeleteAllowed"
+          BuildDeleteMessage="HubSettingsHelpers.BuildConfirmDeleteNodeMessage"
+          OnRowDelete="OnRowDelete"
+          GetDeleteMark="@(row => row.MarkDelete)" />
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    private List<PeerNodeRow> rows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchData();
+
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate += HandleRegistrationUpdate;
+        }
+    }
+
+    private bool IsDeleteAllowed(PeerNodeRow row)
+    {
+        if (Central == null || Central.HubClient.HubConnectionId is null)
+        {
+            return false;
+        }
+        return !row.HubConnectionIds.Contains(Central.HubClient.HubConnectionId);
+    }
+
+    private async Task OnRowDelete(PeerNodeRow row)
+    {
+        row.MarkDelete = true;
+        StateHasChanged();
+
+        await Http.DeleteAsync($"hub/nodes/{row.Id}");
+    }
+
+    private IEnumerable<DataColumnDefinition<PeerNodeRow>> GetDefinition()
+    {
+        yield return new("Peer name", row => row.PeerName);
+        yield return new("Node name", row => row.Name);
+        yield return new("Last message time", row => row.LastMessageTime?.ToStandardFormat() ?? String.Empty);
+        yield return new("Connections", row => row.HubConnectionIds.Length);
+    }
+
+    private async Task FetchData() => this.rows = await Http.GetList<PeerNodeRow>($"hub/nodes/{CoreConstants.FrontEndPeer}");
+
+    private async Task HandleRegistrationUpdate(UpdatedRegistrations updated)
+    {
+        await FetchData();
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate -= HandleRegistrationUpdate;
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}

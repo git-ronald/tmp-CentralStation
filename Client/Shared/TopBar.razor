@@ -1,0 +1,47 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+
+@inject NavigationManager Navigation
+@inject SignOutSessionStateManager SignOutManager
+
+@*See: https://getbootstrap.com/docs/4.0/components/navbar/*@
+
+<nav class="navbar navbar-expand-lg sticky-top">
+    <div class="navbar-nav pe-2 mx-2">
+        <AuthorizeView>
+            <Authorized>
+                <button class="nav-item nav-link btn btn-link"><i class="oi oi-star"></i></button>
+                <a href="notifications" class="nav-item nav-link"><i class="oi oi-bell"></i></a>
+            </Authorized>
+        </AuthorizeView>
+
+        <DropdownBreadcrumb/>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            @*Hello, @context.User.Identity?.Name!*@
+            <div class="form-inline flex-grow-1 mx-2">
+                <div class="input-group">
+                    <input class="form-control form-control-sm form-control-color bg-dark text-light" type="search" placeholder="Search" aria-label="Search">
+                    <button class="input-group-text btn btn-primary">
+                        <i class="oi oi-magnifying-glass"></i>
+                    </button>
+                </div>
+                @*<button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>*@
+            </div>
+            <div class="navbar-nav pe-2">
+                <a href="settings/general" class="nav-item nav-link"><i class="oi oi-wrench"></i></a>
+                <button class="nav-item nav-link btn btn-link" @onclick="BeginLogout"><i class="oi oi-account-logout"></i></button>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</nav>
+
+@code {
+    private async Task BeginLogout(MouseEventArgs args)
+    {
+        await SignOutManager.SetSignOutState();
+        Navigation.NavigateTo("authentication/logout");
+    }
+}

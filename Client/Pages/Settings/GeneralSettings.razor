@@ -1,0 +1,11 @@
+﻿@page "/settings/general"
+@using CentralStation.Client.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<h3>General Settings</h3>
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+}

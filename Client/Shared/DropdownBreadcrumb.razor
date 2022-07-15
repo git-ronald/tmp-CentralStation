@@ -1,0 +1,119 @@
+﻿@using CentralStation.Client.Models
+@using CentralStation.Client.Services
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+
+<div class="nav-item dropdown" @onmouseover="OnMouseOver" @onmouseout="OnMouseOut" @onclick="NavigateBack">
+    <button class="toggler-btn btn btn-link @BreadcrumTogglerClass" @attributes=TogglerAttributes>
+        <span class="text-truncate dropdown-breadcrumb px-2">
+            @GetParentPage().Label
+        </span>
+    </button>
+    <div class="dropdown-menu @dropdownShow">
+        @*<div class="dropdown-divider"></div>*@
+        @foreach (var pageItem in this.breadcrumb.Skip(1))
+        {
+            <a class="dropdown-item" href="@pageItem.Url">@pageItem.Label</a>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    private List<BreadcrumbNavPage> breadcrumb = new();
+    private string dropdownShow = "";
+
+    private string BreadcrumTogglerClass => this.breadcrumb.Count > 1 ? "dropdown-toggle" : "";
+
+    private Dictionary<string, object> TogglerAttributes
+    {
+        get
+        {
+            if (this.breadcrumb.Count > 1)
+            {
+                return new();
+            }
+            return new() { { "disabled", "disabled" } };
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        if (Central != null)
+        {
+            Central.Navigation.NotifyMenuUpdate += HandleNotifyMenuUpdate;
+            Central.NotifyClearState += HandleNotifyClearState;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        this.dropdownShow = "";
+        var parentPage = GetParentPage();
+        this.breadcrumb = new List<BreadcrumbNavPage>();
+        Navigation.NavigateTo(parentPage.Url);
+    }
+
+    private BreadcrumbNavPage GetParentPage()
+    {
+        if (this.breadcrumb.Count > 0)
+        {
+            return this.breadcrumb[0];
+        }
+
+        if (Central == null)
+        {
+            return new BreadcrumbNavPage { Label = "Home" };
+        }
+
+        return Central.Navigation.GetBreadcrumbRoot();
+    }
+
+    private Task HandleNotifyMenuUpdate()
+    {
+        this.dropdownShow = "";
+        this.breadcrumb = new List<BreadcrumbNavPage>();
+        StateHasChanged();
+
+        if (Central != null)
+        {
+            this.breadcrumb = Central.Navigation.GetBreadcrumb();
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task HandleNotifyClearState()
+    {
+        this.dropdownShow = "";
+        this.breadcrumb = new List<BreadcrumbNavPage>();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void OnMouseOver()
+    {
+        if (this.breadcrumb.Count > 1)
+        {
+            this.dropdownShow = "show";
+        }
+    }
+
+    private void OnMouseOut()
+    {
+        this.dropdownShow = "";
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.Navigation.NotifyMenuUpdate -= HandleNotifyMenuUpdate;
+            Central.NotifyClearState -= HandleNotifyClearState;
+        }
+        return ValueTask.CompletedTask;
+    }
+}

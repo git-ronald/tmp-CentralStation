@@ -1,0 +1,10 @@
+﻿<footer class="navbar navbar-expand-lg bg-dark">
+    <div class="form-inline flex-grow-1">
+        @Content
+    </div>
+</footer>
+
+@code{
+    [Parameter]
+    public RenderFragment? Content { get; set; }
+}

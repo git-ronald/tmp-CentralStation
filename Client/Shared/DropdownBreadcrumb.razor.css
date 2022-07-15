@@ -1,0 +1,19 @@
+﻿.dropdown {
+    width: 170px;
+}
+
+.dropdown-breadcrumb {
+    width: 150px;
+    display: inline-block;
+    height: 22px;
+    text-align: left;
+}
+
+.toggler-btn:disabled {
+    color: #fff;
+}
+
+.toggler-btn:focus {
+    border: none;
+    box-shadow: none;
+}

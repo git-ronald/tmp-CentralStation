@@ -1,0 +1,37 @@
+﻿@using CentralStation.Client.Services
+@implements IAsyncDisposable
+
+<PageTitle>@pageTitle</PageTitle>
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    private string pageTitle = String.Empty;
+
+    protected override void OnInitialized()
+    {
+        this.pageTitle = String.Empty;
+
+        if (Central != null)
+        {
+            Central.Navigation.NotifyMenuUpdate += HandleNotifyMenuUpdate;
+        }
+    }
+
+    private Task HandleNotifyMenuUpdate()
+    {
+        this.pageTitle = Central == null ? String.Empty : Central.Navigation.GetPageTitle();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.Navigation.NotifyMenuUpdate -= HandleNotifyMenuUpdate;
+        }
+        return ValueTask.CompletedTask;
+    }
+}

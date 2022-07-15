@@ -1,0 +1,110 @@
+﻿@using CentralStation.Client.ConstantValues
+@using CentralStation.Client.Extensions
+@using CentralStation.Client.Services
+@typeparam TRow
+
+<table class="table @GetTableHoverClass()">
+    <thead>
+        <tr class="bg-dark">
+            @foreach (var column in Define())
+            {
+                <th>
+                    @column.ColumnName
+                </th>
+            }
+            @if (OnRowDelete != null)
+            {
+                <th class="min"></th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in @Source)
+        {
+            <tr>
+                @foreach (var column in Define())
+                {
+                    <td>
+                        <span class="@GetRowFieldClass()" @onclick="@(_ => HandleRowClick(row))">
+                            @if (IsMarkedDeleted(row))
+                            {
+                                <i>@column.Select(row)</i>
+                            }
+                            else
+                            {
+                                @column.Select(row)
+                            }
+                        </span>
+                    </td>
+                }
+
+                @if (OnRowDelete != null)
+                {
+                    <td class="min">
+                        @if (IsRowDeleteAllowed(row))
+                        {
+                            <i class="action-link oi oi-trash" @onclick="@(_ => HandleRowDelete(row))"></i>
+                        }
+                    </td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    [Parameter]
+    public Func<IEnumerable<DataColumnDefinition<TRow>>> Define { get; set; } = () => Enumerable.Empty<DataColumnDefinition<TRow>>();
+
+    [Parameter]
+    public IEnumerable<TRow> Source { get; set; } = Enumerable.Empty<TRow>();
+
+    [Parameter]
+    public Func<TRow, Task>? OnRowClick { get; set; }
+
+    [Parameter]
+    public Func<TRow, Task>? OnRowDelete { get; set; }
+
+    [Parameter]
+    public Func<TRow, RenderFragment>? BuildDeleteMessage { get; set; }
+
+    [Parameter]
+    public Func<TRow, bool>? GetDeleteMark { get; set; }
+
+    [Parameter]
+    public Func<TRow, bool>? GetDeleteAllowed { get; set; }
+
+    private string GetTableHoverClass() => OnRowClick != null || OnRowDelete != null ? "table-hover" : String.Empty;
+    private string GetRowFieldClass() => OnRowClick != null ? "action-link" : String.Empty;
+    private Task HandleRowClick(TRow row) => OnRowClick != null ? OnRowClick(row) : Task.CompletedTask;
+
+    private void HandleRowDelete(TRow row)
+    {
+        if (OnRowDelete == null || Central == null)
+        {
+            return;
+        }
+
+        RenderFragment body = BuildDeleteMessage != null ? BuildDeleteMessage(row) : "Delete this row?".BuildFragment();
+        
+        Central.BuildDialog("Confirm delete")
+            .AddBody(body)
+            .AddButton(new("Yes", BootstrapConstants.BtnPrimary, () => OnRowDelete(row)))
+            .AddButton(new("No", BootstrapConstants.BtnSecondary))
+            .Show();
+    }
+
+    private bool IsRowDeleteAllowed(TRow row)
+    {
+        if (IsMarkedDeleted(row))
+        {
+            return false;
+        }
+        return GetDeleteAllowed != null ? GetDeleteAllowed(row) : true;
+    }
+
+    private bool IsMarkedDeleted(TRow row) => GetDeleteMark != null ? GetDeleteMark(row) : false;
+}

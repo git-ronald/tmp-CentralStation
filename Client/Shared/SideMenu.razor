@@ -1,0 +1,93 @@
+﻿@using CentralStation.Client.Models
+@using CentralStation.Client.Services
+@using CentralStation.Client.Settings
+@using Microsoft.Extensions.Options;
+@implements IAsyncDisposable
+@inject IOptions<AppSettings> Options;
+
+<div class="sidebar">
+    <div class="top-row ps-3 navbar navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="@rootUrl">@this.appSettings?.AppTitle</a>
+            <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+    </div>
+
+    <div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+        <nav class="flex-column">
+            @foreach (var pageItem in pages)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="@pageItem.Url" Match="@pageItem.Match">
+                        <span class="oi @pageItem.Icon" aria-hidden="true"></span> @pageItem.Label
+                    </NavLink>
+                </div>
+            }
+        </nav>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    private AppSettings? appSettings = null;
+    private string rootUrl = String.Empty;
+    private bool collapseNavMenu = true;
+    private IEnumerable<ClientNavPage> pages = Enumerable.Empty<ClientNavPage>();
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override void OnInitialized()
+    {
+        this.appSettings = Options.Value;
+
+        if (Central != null)
+        {
+            Central.Navigation.NotifyMenuUpdate += HandleNotifyMenuUpdate;
+            Central.NotifyClearState += HandleNotifyClearState;
+        }
+    }
+
+    private Task HandleNotifyMenuUpdate()
+    {
+        if (Central == null)
+        {
+            this.rootUrl = String.Empty;
+            this.pages = Enumerable.Empty<ClientNavPage>();
+        }
+        else
+        {
+            this.rootUrl = Central.Navigation.GetBreadcrumbRoot().Url;
+            this.pages = Central.Navigation.GetMenuPages();
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleNotifyClearState()
+    {
+        this.rootUrl = Central == null ? String.Empty : Central.Navigation.GetBreadcrumbRoot().Url;
+        this.pages = Enumerable.Empty<ClientNavPage>();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.Navigation.NotifyMenuUpdate -= HandleNotifyMenuUpdate;
+            Central.NotifyClearState -= HandleNotifyClearState;
+        }
+        return ValueTask.CompletedTask;
+    }
+}

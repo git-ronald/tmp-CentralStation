@@ -1,0 +1,70 @@
+﻿<div class="modal-backdrop fade @modalClass"></div>
+<div class="modal @modalClass" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@builder?.Title</h5>
+                <button type="button" class="btn btn-close" @onclick="Close"></button>
+            </div>
+            <div class="modal-body">
+                @GetBody()
+            </div>
+            <div class="modal-footer">
+                @if (this.builder != null)
+                {
+                    @foreach (ButtonInfo button in this.builder.Buttons)
+                    {
+                        <button class="btn @button.CssClass" @onclick="@(() => OnButtonCick(button))">
+                            @button.Label
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    public static IBuilderReady BuildEmpty() => new DialogBuilder(String.Empty, () => { }); // Just to satisfy nullability whining
+
+    [Parameter]
+    public RenderFragment? Body { get; set; }
+
+    private string modalClass = String.Empty;
+    private DialogBuilder? builder = null;
+
+    public IBuilderReady Build(string title)
+    {
+        this.builder = new DialogBuilder(title, Show);
+        return this.builder;
+    }
+
+    private RenderFragment? GetBody()
+    {
+        if (this.builder?.Body != null)
+        {
+            return this.builder.Body;
+        }
+        return this.Body;
+    }
+
+    private async Task OnButtonCick(ButtonInfo button)
+    {
+        await Close();
+        await button.Action();
+    }
+
+    private void Show()
+    {
+        this.modalClass = "show";
+        StateHasChanged();
+    }
+
+    public Task Close()
+    {
+        this.modalClass = String.Empty;
+        this.builder = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+}

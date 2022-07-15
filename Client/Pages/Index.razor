@@ -1,0 +1,13 @@
+﻿@page "/"
+@inject NavigationManager NavManager
+
+Hi 🙂 <a href="dashboard">click here</a>
+
+@*<SurveyPrompt Title="How is Blazor working for you?" />*@
+
+@code{
+    protected override void OnInitialized()
+    {
+        NavManager.NavigateTo("/test1");
+    }
+}

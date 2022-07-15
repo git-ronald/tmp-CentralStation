@@ -1,0 +1,14 @@
+﻿@using CentralStation.Client.Services
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; } = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Central != null)
+        {
+            await Central.HandleAuhtorized();
+        }
+    }
+}

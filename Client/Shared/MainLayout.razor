@@ -1,0 +1,61 @@
+﻿@using CentralStation.Client.Models
+@using CentralStation.Client.Services
+@using CentralStation.Client.Shared.Dialog
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Text.Json
+@inherits LayoutComponentBase
+@inject ICentralManagementService Central
+
+<CascadingValue Value="@Central">
+    <CurrentPageTitle />
+</CascadingValue>
+
+<AuthorizeView>
+    <Authorized>
+        <CascadingValue Value="@Central">
+            <AuthorizedHandler />
+        </CascadingValue>
+    </Authorized>
+    <NotAuthorized>
+        <CascadingValue Value="@Central">
+            <NotAuthorizedHandler />
+        </CascadingValue>
+    </NotAuthorized>
+</AuthorizeView>
+
+@*TODO: make button that manually starts a hub connection*@
+
+<div class="page">
+    <CascadingValue Value="@Central">
+        <SideMenu />
+
+        <main>
+            <TopBar />
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </CascadingValue>
+</div>
+
+<ModalDialog @ref="dialog" />
+
+@code {
+    private ModalDialog dialog = new();
+
+    [JSInvokable]
+    public static Task HandleKeyUp(KeyUpArgs e)
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override void OnInitialized()
+    {
+        if (Central != null)
+        {
+            Central.BuildDialog = title => this.dialog.Build(title);
+            Central.CloseDialog = () => this.dialog.Close();
+        }
+    }
+}

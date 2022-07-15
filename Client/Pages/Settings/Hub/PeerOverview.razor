@@ -1,0 +1,116 @@
+﻿@page "/settings/hub/peers"
+@using CentralStation.Client.ConstantValues
+@using CentralStation.Client.Extensions
+@using CentralStation.Client.Models
+@using CentralStation.Client.Services
+@using CentralStation.Client.Shared.DataGrid
+@using CoreLibrary.ConstantValues
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject HttpClient Http
+
+<DataGrid Define="GetDefinition" Source="@rows" />
+
+<BottomPanel>
+    <Content>
+        <button class="btn btn-primary" @onclick="DeleteExpired">Delete expired</button>
+        <button class="btn btn-secondary" @onclick="ThoroughCleanUp">Thorough cleanup</button>
+    </Content>
+</BottomPanel>
+
+@code {
+    [CascadingParameter]
+    private ICentralManagementService? Central { get; set; }
+
+    private readonly RenderFragment deleteExpiredBody = __builder =>
+    {
+        <p>This action will delete:</p>
+        <ul>
+            <li>All expired connections.</li>
+            <li>All frontend nodes that are then left with zero connections.</li>
+        </ul>
+        <p>Proceed?</p>
+    };
+
+    private readonly RenderFragment thoroughCleanUpBody = __builder =>
+    {
+        <p>This action will delete:</p>
+        <ul>
+            <li>All connections except current frontend connection.</li>
+            <li>All nodes (back and front) that are then left with zero connections.</li>
+        </ul>
+        <p>Proceed?</p>
+    };
+
+    private List<PeerRow> rows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchData();
+
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate += HandleRegistrationUpdate;
+        }
+    }
+
+    private IEnumerable<DataColumnDefinition<PeerRow>> GetDefinition()
+    {
+        yield return new("Name", row => row.Name);
+        yield return new("Nodes", row => row.PeerNodeCount);
+    }
+
+    private async Task FetchData() => this.rows = await Http.GetList<PeerRow>("hub/peers");
+
+    private async Task HandleRegistrationUpdate(UpdatedRegistrations updated)
+    {
+        if (updated <= UpdatedRegistrations.PeerNode)
+        {
+            await FetchData();
+            StateHasChanged();
+        }
+    }
+
+    private void DeleteExpired()
+    {
+        Central?.BuildDialog("Confirm delete expired")
+            .AddBody(this.deleteExpiredBody)
+            .AddButton(new("Yes", BootstrapConstants.BtnPrimary, async () =>
+            {
+                await Http.DeleteAsync("hub/connections/expired");
+                // TODO: toaster
+            }))
+            .AddButton(new("No", BootstrapConstants.BtnSecondary))
+            .Show();
+    }
+
+    private void ThoroughCleanUp()
+    {
+        Central?.BuildDialog("Confirm thorough cleanup")
+            .AddBody(this.thoroughCleanUpBody)
+            .AddButton(new("Yes", BootstrapConstants.BtnPrimary, async () =>
+            {
+                List<string> excluded = new();
+                if (!String.IsNullOrEmpty(Central.HubClient.HubConnectionId))
+                {
+                    excluded.Add(Central.HubClient.HubConnectionId); // Exclude current connection
+                }
+
+                await Http.PostAsJsonAsync<List<string>>("hub/connections/delete-all", excluded);
+                // TODO: toaster
+            }))
+            .AddButton(new("No", BootstrapConstants.BtnSecondary))
+            .Show();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Central != null)
+        {
+            Central.HubClient.OnRegistrationUpdate -= HandleRegistrationUpdate;
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}
